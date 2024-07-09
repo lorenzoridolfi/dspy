@@ -289,7 +289,7 @@ def create_n_fewshot_demo_sets(
     # Initialize demo_candidates dictionary
     for i, _ in enumerate(student.predictors()):
         demo_candidates[i] = []
-    
+
     starter_seed = seed
     # Shuffle the trainset with the starter seed
     random.Random(starter_seed).shuffle(trainset)
@@ -351,19 +351,19 @@ def create_n_fewshot_demo_sets(
 def new_getfile(object, _old_getfile=inspect.getfile):
     if not inspect.isclass(object):
         return _old_getfile(object)
-    
+
     # Lookup by parent module (as in current inspect)
     if hasattr(object, '__module__'):
         object_ = sys.modules.get(object.__module__)
         if hasattr(object_, '__file__'):
             return object_.__file__
-    
+
     # If parent module is __main__, lookup by methods (NEW)
     for name, member in inspect.getmembers(object):
         if inspect.isfunction(member) and object.__qualname__ + '.' + member.__name__ == member.__qualname__:
             return inspect.getfile(member)
     raise TypeError(f'Source for {object!r} not found')
-    
+
 inspect.getfile = new_getfile
 
 def get_dspy_source_code(module):
@@ -378,6 +378,29 @@ def get_dspy_source_code(module):
         base_code = str(class_code)
 
     completed_set = set()
+    # for attribute in module.__dict__.keys():
+    #     try:
+    #         iterable = iter(getattr(module, attribute))
+    #     except TypeError:
+    #         iterable = [getattr(module, attribute)]
+
+    #     for item in iterable:
+    #         if item in completed_set:
+    #             continue
+    #         if isinstance(item, Parameter):
+    #             if item.signature is not None and item.signature.__pydantic_parent_namespace__['signature_name'] + "_sig" not in completed_set:
+    #                 try:
+    #                     header.append(inspect.getsource(item.signature))
+    #                 except TypeError:
+    #                     header.append(str(item.signature))
+    #                 completed_set.add(item.signature.__pydantic_parent_namespace__['signature_name'] + "_sig")
+    #         if isinstance(item, dspy.Module):
+    #             if type(item) not in completed_set:
+    #                 header.append(get_dspy_source_code(item))
+    #                 completed_set.add(type(item))
+    #         completed_set.add(item)
+
+
     for attribute in module.__dict__.keys():
         try:
             iterable = iter(getattr(module, attribute))
@@ -388,16 +411,18 @@ def get_dspy_source_code(module):
             if item in completed_set:
                 continue
             if isinstance(item, Parameter):
-                if item.signature is not None and item.signature.__pydantic_parent_namespace__['signature_name'] + "_sig" not in completed_set:
-                    try:
-                        header.append(inspect.getsource(item.signature))
-                    except TypeError:
-                        header.append(str(item.signature))
-                    completed_set.add(item.signature.__pydantic_parent_namespace__['signature_name'] + "_sig")
+                if hasattr(item, 'signature') and item.signature is not None:
+                    signature_name = item.signature.__pydantic_parent_namespace__['signature_name'] + "_sig"
+                    if signature_name not in completed_set:
+                        try:
+                            header.append(inspect.getsource(item.signature))
+                        except TypeError:
+                            header.append(str(item.signature))
+                        completed_set.add(signature_name)
             if isinstance(item, dspy.Module):
                 if type(item) not in completed_set:
                     header.append(get_dspy_source_code(item))
                     completed_set.add(type(item))
             completed_set.add(item)
-        
+
     return '\n\n'.join(header) + '\n\n' + base_code

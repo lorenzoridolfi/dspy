@@ -32,6 +32,7 @@ def backoff_hdlr(details):
         "{kwargs}".format(**details),
     )
 
+openai_client = openai.OpenAI()
 
 class GPT3(LM):
     """Wrapper around OpenAI's GPT API.
@@ -214,9 +215,25 @@ class GPT3(LM):
         return completions
 
 
+
+def client_completions_create(**kwargs):
+    try:
+        output = openai_client.with_options(max_retries=5).chat.completions.create(**kwargs)
+    except Exception as e:
+        # Print debug information
+        print(f"An exception occurred: {e}")
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Exception args: {e.args}")
+        for key, value in kwargs.items():
+            print(f'kwargs {key} = {value}')
+
+        # Raise a new exception with additional information
+        raise RuntimeError("A processing error occurred") from e
+    return output
+
 @CacheMemory.cache
 def cached_gpt3_request_v2(**kwargs):
-    return openai.Completion.create(**kwargs)
+    return client_completions_create(**kwargs)
 
 
 @functools.lru_cache(maxsize=None if cache_turn_on else 0)
@@ -229,7 +246,7 @@ def cached_gpt3_request_v2_wrapped(**kwargs):
 def _cached_gpt3_turbo_request_v2(**kwargs) -> OpenAIObject:
     if "stringify_request" in kwargs:
         kwargs = json.loads(kwargs["stringify_request"])
-    return cast(OpenAIObject, openai.ChatCompletion.create(**kwargs))
+    return cast(OpenAIObject, client_completions_create(**kwargs))
 
 
 @functools.lru_cache(maxsize=None if cache_turn_on else 0)
@@ -240,7 +257,7 @@ def _cached_gpt3_turbo_request_v2_wrapped(**kwargs) -> OpenAIObject:
 
 @CacheMemory.cache
 def v1_cached_gpt3_request_v2(**kwargs):
-    return openai.completions.create(**kwargs)
+    return client_completions_create(**kwargs)
 
 
 @functools.lru_cache(maxsize=None if cache_turn_on else 0)
@@ -253,7 +270,7 @@ def v1_cached_gpt3_request_v2_wrapped(**kwargs):
 def v1_cached_gpt3_turbo_request_v2(**kwargs):
     if "stringify_request" in kwargs:
         kwargs = json.loads(kwargs["stringify_request"])
-    return openai.chat.completions.create(**kwargs)
+    return client_completions_create(**kwargs)
 
 
 @functools.lru_cache(maxsize=None if cache_turn_on else 0)

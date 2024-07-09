@@ -128,7 +128,7 @@ class BaseModule:
 
     def save(self, path):
         with open(path, "w") as f:
-            f.write(ujson.dumps(self.dump_state(), indent=2))
+            f.write(ujson.dumps(self.dump_state(), indent=2,ensure_ascii=False))
 
     def load(self, path):
         with open(path) as f:
